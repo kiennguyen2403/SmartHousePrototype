@@ -3,10 +3,18 @@
 // Defines Trig and Echo pins of the Ultrasonic Sensor
 const int trigPin = 10;
 const int echoPin = 11;
-#define buzzerPin A0 // Defines the pin A0 as an output to buzzerPin
+#define lightPin A0 // Defines the pin A0 as an output to lightPin
 // Variables for the duration and the distance
+
+
 long duration;
 int distance;
+int distanceThreshold = 20; // Distance threshold to turn on the light
+int durationThreshold = 1000;
+
+bool isPeopleDetected = false;
+
+
 Servo myServo; // Creates a servo object for controlling the servo motor
 void setup()
 {
@@ -23,12 +31,11 @@ void loop()
         myServo.write(i);
         delay(30);
         distance = calculateDistance(); // Calls a function for calculating the distance measured by the Ultrasonic sensor for each degree
-
-        Serial.print(i);        // Sends the current degree into the Serial Port
-        Serial.print(",");      // Sends addition character right next to the previous value needed later in the Processing IDE for indexing
-        Serial.print(distance); // Sends the distance value into the Serial Port
-        Serial.print(".");      // Sends addition character right next to the previous value needed later in the Processing IDE for indexing
-        tone(buzzerPin, 10000 / distance);
+        if (distance < distanceThreshold)
+        {
+            // tone(lightPin, 10000 / distance); // Produces a different tone according to the distance the object is from the sensor
+            digitalWrite(lightPin, HIGH); // Turns on the LED
+        } 
     }
     // Repeats the previous lines from 165 to 15 degrees
     for (int i = 165; i > 15; i--)
@@ -36,11 +43,11 @@ void loop()
         myServo.write(i);
         delay(30);
         distance = calculateDistance();
-        Serial.print(i);
-        Serial.print(",");
-        Serial.print(distance);
-        Serial.print(".");
-        tone(buzzerPin, 10000 / distance); // Produces a different tone according to the distance the object is from the sensor
+        tone(lightPin, 10000 / distance); // Produces a different tone according to the distance the object is from the sensor
+        if (distance < distanceThreshold)
+        {
+            // tone(lightPin, 10000 / distance); // Produces a different tone according to the distance the object is from the sensor
+        }
     }
 }
 // Function for calculating the distance measured by the Ultrasonic sensor

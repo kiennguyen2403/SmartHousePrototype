@@ -13,7 +13,7 @@ SERIAL_PORT = os.environ.get('SERIAL_PORT')
 
 ser = serial.Serial()
 
-SENSORS = ['temperature', 'humidity']
+SENSORS = ['temperature', 'humidity', 'smoke']
 ACTIONS = {
     'fan': {
         True: b'0',
@@ -31,7 +31,7 @@ ACTIONS = {
 
 MQTT_CONFIG = dict(
     host=os.environ.get('MQTT_HOST'),
-    port=int(os.environ.get('MQTT_PORT')),
+    port=int(str(os.environ.get('MQTT_PORT'))),
     user=os.environ.get('MQTT_USER')
 )
 mqtt_client = paho.Client()
@@ -44,7 +44,8 @@ actuators = {
 
 sensors = {
     'temperature': 0,
-    'humidity': 0
+    'humidity': 0,
+    'smoke': 0
 }
 
 

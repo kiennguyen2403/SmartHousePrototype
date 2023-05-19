@@ -3,6 +3,12 @@
 #include <DHT_U.h>
 #include <string.h>
 #include <LiquidCrystal_I2C.h>
+#define PIN_DHT11 3
+#define PIN_FAN 4
+#define PIN_HEATER 5
+#define PIN_BUZZER 6
+#define PIN_SMOKE A0
+
 #define TURN_ON_FAN 0
 #define TURN_OFF_FAN 1
 #define TURN_ON_HEATER 2
@@ -10,11 +16,6 @@
 #define TURN_ON_BUZZER 4
 #define TURN_OFF_BUZZER 5
 
-
-const int PIN_DHT11 = 3;
-const int PIN_FAN = 4;
-const int PIN_HEATER = 5;
-const int PIN_BUZZER = 6;
 
 DHT_Unified dht(PIN_DHT11, DHT11);
 
@@ -24,6 +25,7 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 // cached data
 int temperature = 0;
 int humidity = 0;
+int smoke = 0;
 bool fan = false;
 bool heater = false;
 bool buzzer = false;
@@ -49,6 +51,7 @@ void setup() {
     sei(); // allow interrupts
 
     dht.begin();
+    pinMode(PIN_SMOKE, INPUT);
     pinMode(PIN_FAN, OUTPUT);
     pinMode(PIN_HEATER, OUTPUT);
     pinMode(PIN_BUZZER, OUTPUT);
@@ -86,6 +89,8 @@ void readSensors() {
         humidity = event.relative_humidity;
     }
 
+    smoke = analogRead(PIN_SMOKE);
+
     display(
         "T: " + String(temperature) + "C",
         "H: " + String(humidity) + "%",
@@ -96,6 +101,7 @@ void readSensors() {
     Serial.println(
         "{\"temperature\":" + String(temperature) +
         ",\"humidity\":" + String(humidity) +
+        ",\"smoke\":" + String(smoke) +
         ",\"fan\":" + String((fan ? "true" : "false")) +
         ",\"heater\":" + String((heater ? "true" : "false")) +
         ",\"buzzer\":" + String((buzzer ? "true" : "false")) +"}"

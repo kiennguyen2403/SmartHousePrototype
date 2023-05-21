@@ -102,6 +102,7 @@ setup_mqtt()
 
 while True:
     line = ser.readline().decode('utf-8').rstrip()
+    print(line)
     if not line:
         continue
 

@@ -1,3 +1,4 @@
+import asyncio
 from voicecommand import *
 import threading
 import os
@@ -6,13 +7,13 @@ import discord
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 from GPTWrapper import ask
-from rpc import sendMessage
 from time import sleep
 load_dotenv()
 TOKEN = str(os.getenv('DISCORD_TOKEN'))
 API_URL = os.getenv('API_URL')
 INDOOR_ENV_DEVICE = os.getenv('INDOOR_ENV')
 LIGHTING_DEVICE = os.getenv('LIGHTING')
+GATE_DEVICE = os.getenv('GATE')
 USERNAME = os.getenv('USERNAME')
 PASSWORD = os.getenv('PASSWORD')
 CHANNEL_ID = int(str(os.getenv('CHANNEL_ID')))
@@ -33,29 +34,29 @@ Command = [{
     "method": "CloseGate",
     "request": {}
 }, {
-    "id": 2,
-    "method": "LightOn",
-    "request": {}
+    "id": LIGHTING_DEVICE,
+    "method": "setValueLight",
+    "request": True,
 }, {
-    "id": 2,
-    "method": "LightOff",
-    "request": {}
+    "id": LIGHTING_DEVICE,
+    "method": "setValueLight",
+    "request": False,
 }, {
-    "id": 3,
-    "method": "FanOn",
-    "request": {}
+    "id": INDOOR_ENV_DEVICE,
+    "method": "setValueFan",
+    "request": True
 }, {
-    "id": 3,
-    "method": "FanLight",
-    "request": {}
+    "id": INDOOR_ENV_DEVICE,
+    "method": "setValueFan",
+    "request": False
 }, {
-    "id": 4,
-    "params": "HeaterOn",
-    "request": {}
+    "id": INDOOR_ENV_DEVICE,
+    "params": "setValueHeater",
+    "request": True
 }, {
-    "id": 4,
-    "method": "HeaterOff",
-    "request": {}
+    "id": INDOOR_ENV_DEVICE,
+    "method": "setValueHeater",
+    "request": False
 }]
 
 bearer_token = ''
@@ -63,9 +64,24 @@ bearer_token = ''
 
 
 class RecordingThread(threading.Thread):
-    def __init__(self, voice_client):
+    def __init__(self, voice_client, bearer_token):
         threading.Thread.__init__(self)
         self.voice_client = voice_client
+        self.bearer_token = bearer_token
+
+
+    async def send_message(self, deviceId, method, params):
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f'{API_URL}/api/rpc/oneway/{deviceId}',
+                headers={'X-Authorization': f'Bearer {self.bearer_token}'},
+                json={
+                    'method': method,
+                    'params': params
+                }
+            ) as resp:
+                print(resp)
+
 
     def run(self):
         language_code = "en-US"  # a BCP-47 language tag
@@ -99,8 +115,7 @@ class RecordingThread(threading.Thread):
                 if "smart house" in text:
                     if "open" in text and "gate" in text:
                         response = "Opening Gate"
-                        sendMessage("OpenGate",1)
-                        
+                        # sendMessage("OpenGate",1)
                     # elif "close" in text and "gate" in text:
                     #     response = "Close Gate"
                     #     sendMessage(
@@ -113,22 +128,18 @@ class RecordingThread(threading.Thread):
                     #     response = "Light Off"
                     #     sendMessage(
                     #         Command[3]["method"], Command[3]["request"], Command[3]["id"])
-                    # elif "on" in text and "fan" in text:
-                    #     response = "Fan On"
-                    #     sendMessage(
-                    #         Command[4]["method"], Command[4]["request"], Command[4]["id"])
-                    # elif "off" in text and "fan" in text:
-                    #     response = "Fan Off"
-                    #     sendMessage(
-                    #         Command[5]["method"], Command[5]["request"], Command[5]["id"])
-                    # elif "on" in text and "heater" in text:
-                    #     response = "Heater On"
-                    #     sendMessage(
-                    #         Command[6]["method"], Command[6]["request"], Command[6]["id"])
-                    # elif "off" in text and "heater" in text:
-                    #     response = "Heater Off"
-                    #     sendMessage(
-                    #         Command[7]["method"], Command[7]["request"], Command[7]["id"])
+                    elif "on" in text and "fan" in text:
+                        response = "Fan On"
+                        asyncio.run(self.send_message(*Command[4].values()))
+                    elif "off" in text and "fan" in text:
+                        response = "Fan Off"
+                        asyncio.run(self.send_message(*Command[5].values()))
+                    elif "on" in text and "heater" in text:
+                        response = "Heater On"
+                        asyncio.run(self.send_message(*Command[6].values()))
+                    elif "off" in text and "heater" in text:
+                        response = "Heater Off"
+                        asyncio.run(self.send_message(*Command[7].values()))
                 
                 else:
                     response = ask(text)
@@ -136,7 +147,7 @@ class RecordingThread(threading.Thread):
                 print(response)
                 text_to_wav(response)
                 playAudio(self.voice_client)
-                # sleep(len(response)*0.3)
+                sleep(len(response)*0.1)
 
 
 ###############
@@ -145,7 +156,7 @@ class RecordingThread(threading.Thread):
 async def join(ctx):
     channel = ctx.author.voice.channel
     voice_client = await channel.connect()
-    recordingThread = RecordingThread(voice_client)
+    recordingThread = RecordingThread(voice_client, bearer_token)
     recordingThread.start()
     # voice_client.play(discord.FFmpegPCMAudio('output.wav'))
     await ctx.send(f'Joined {channel}')

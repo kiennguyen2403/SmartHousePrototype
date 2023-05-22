@@ -185,7 +185,7 @@ def text_to_wav(text, voicename = "ja-JP-Wavenet-B"):
         audio_config=audio_config,
     )
 
-    filename = f"{voicename}.wav"
+    filename = "output.wav"
     with open(filename, "wb") as out:
         out.write(response.audio_content)
         print(f'Generated speech saved to "{filename}"')

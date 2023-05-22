@@ -50,7 +50,8 @@ class RecordingThread(threading.Thread):
             responses = client.streaming_recognize(streaming_config, requests)
 
             # Now, put the transcription responses to use.
-            listen_print_loop(responses)
+            for text in (responses):
+                print(text)
 
 ###############
 

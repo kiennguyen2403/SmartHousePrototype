@@ -192,4 +192,4 @@ def text_to_wav(text, voicename = "ja-JP-Wavenet-B"):
 
 
 if __name__ == "__main__":
-   text_to_wav("i love you Kien")
+   startrecording()

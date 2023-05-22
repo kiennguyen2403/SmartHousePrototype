@@ -24,9 +24,10 @@ bot = commands.Bot(command_prefix='>', intents=intents)
 bearer_token = ''
 ##########################
 class RecordingThread(threading.Thread):
-    def __init__(self):
+    def __init__(self,voice_client):
         threading.Thread.__init__(self)
-
+        self.voice_client = voice_client
+    
     def run(self):
         language_code = "en-US"  # a BCP-47 language tag
         client = speech.SpeechClient()
@@ -50,8 +51,15 @@ class RecordingThread(threading.Thread):
             responses = client.streaming_recognize(streaming_config, requests)
 
             # Now, put the transcription responses to use.
-            for text in (responses):
+            for text in speech_to_text(responses):
                 print(text)
+                response = ask(text)
+                print(response)
+                text_to_wav(response)
+                playAudio(self.voice_client)
+
+
+
 
 ###############
 
@@ -59,11 +67,13 @@ class RecordingThread(threading.Thread):
 async def join(ctx):
     channel = ctx.author.voice.channel
     voice_client = await channel.connect()
-    recordingThread = RecordingThread()
+    recordingThread = RecordingThread(voice_client)
     recordingThread.start()
-    voice_client.play(discord.FFmpegPCMAudio('output.wav'))
+    # voice_client.play(discord.FFmpegPCMAudio('output.wav'))
     await ctx.send(f'Joined {channel}')
 
+def playAudio(voice_client):
+    voice_client.play(discord.FFmpegPCMAudio('output.wav'))
 
 
 @bot.hybrid_command(help='Leave the voice server')

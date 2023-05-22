@@ -6,7 +6,7 @@ import sys
 import pyaudio
 from google.cloud import speech
 import google.cloud.texttospeech as texttospeech
-
+os.environ['GOOGLE_APPLICATION_CREDENTIALS']= 'credential.json'
 
 RATE = 16000
 CHUNK = int(RATE / 10)  # 100ms

@@ -6,7 +6,7 @@ import sys
 import pyaudio
 from google.cloud import speech
 #setting Google credential
-os.environ['GOOGLE_APPLICATION_CREDENTIALS']= 'titanium-octane-387504-10ee72bc80b0.json'
+os.environ['GOOGLE_APPLICATION_CREDENTIALS']= 'credential.json'
 # create client instance 
 
 

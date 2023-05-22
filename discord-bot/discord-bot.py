@@ -4,7 +4,7 @@ import aiohttp
 import discord
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
-
+from voicecommand import *
 load_dotenv()
 TOKEN = str(os.getenv('DISCORD_TOKEN'))
 API_URL = os.getenv('API_URL')
@@ -19,7 +19,36 @@ intents.message_content = True
 bot = commands.Bot(command_prefix='>', intents=intents)
 
 bearer_token = ''
+import threading
+class RecordingThread(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+    def run(self):
+        language_code = "en-US"  # a BCP-47 language tag
+        client = speech.SpeechClient()
+        config = speech.RecognitionConfig(
+            encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+            sample_rate_hertz=RATE,
+            language_code=language_code,
+        )
 
+        streaming_config = speech.StreamingRecognitionConfig(
+            config=config, interim_results=True
+        )
+
+        with MicrophoneStream(RATE, CHUNK) as stream:
+            audio_generator = stream.generator()
+            requests = (
+                speech.StreamingRecognizeRequest(audio_content=content)
+                for content in audio_generator
+            )
+
+            responses = client.streaming_recognize(streaming_config, requests)
+
+            # Now, put the transcription responses to use.
+            listen_print_loop(responses)
+
+    # bot.run(TOKEN)
 
 @bot.hybrid_command()
 async def ping(ctx):
@@ -66,6 +95,8 @@ async def fetch_lighting_status():
 @bot.hybrid_command(help='Show the current fan and heater status')
 async def get_fan_heater_status(ctx):
     data = await fetch_fan_heater_status()
+    recordingThread = RecordingThread()
+    recordingThread.start()
     fan_state = 'ON' if data['fan'] else 'OFF'
     heater_state = 'ON' if data['heater'] else 'OFF'
     await ctx.send(f'**Fan**: {fan_state}\n**Heater**: {heater_state}')
@@ -115,6 +146,38 @@ async def on_ready():
     print('Bot is ready')
     await update_data.start()
 
+def startRecording():
+    
+    language_code = "en-US"  # a BCP-47 language tag
+
+    client = speech.SpeechClient()
+    config = speech.RecognitionConfig(
+        encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+        sample_rate_hertz=RATE,
+        language_code=language_code,
+    )
+
+    streaming_config = speech.StreamingRecognitionConfig(
+        config=config, interim_results=True
+    )
+
+    with MicrophoneStream(RATE, CHUNK) as stream:
+        audio_generator = stream.generator()
+        requests = (
+            speech.StreamingRecognizeRequest(audio_content=content)
+            for content in audio_generator
+        )
+
+        responses = client.streaming_recognize(streaming_config, requests)
+
+    listen_print_loop(responses)
+
 
 if __name__ == '__main__':
+
+    
+    # threading.Thread(target=startRecording).start()
+    
+
+
     bot.run(TOKEN)

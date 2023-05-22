@@ -34,13 +34,13 @@ Command = [{
     "method": "CloseGate",
     "request": {}
 }, {
-    "id": 2,
-    "method": "LightOn",
-    "request": {}
+    "id": LIGHTING_DEVICE,
+    "method": "setValueLight",
+    "request": True,
 }, {
-    "id": 2,
-    "method": "LightOff",
-    "request": {}
+    "id": LIGHTING_DEVICE,
+    "method": "setValueLight",
+    "request": False,
 }, {
     "id": INDOOR_ENV_DEVICE,
     "method": "setValueFan",

@@ -1,9 +1,12 @@
+from voicecommand import *
+import threading
 import os
 
 import aiohttp
 import discord
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
+from GPTWrapper import ask
 
 load_dotenv()
 TOKEN = str(os.getenv('DISCORD_TOKEN'))
@@ -19,6 +22,51 @@ intents.message_content = True
 bot = commands.Bot(command_prefix='>', intents=intents)
 
 bearer_token = ''
+##########################
+class RecordingThread(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+
+    def run(self):
+        language_code = "en-US"  # a BCP-47 language tag
+        client = speech.SpeechClient()
+        config = speech.RecognitionConfig(
+            encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+            sample_rate_hertz=RATE,
+            language_code=language_code,
+        )
+
+        streaming_config = speech.StreamingRecognitionConfig(
+            config=config, interim_results=True
+        )
+
+        with MicrophoneStream(RATE, CHUNK) as stream:
+            audio_generator = stream.generator()
+            requests = (
+                speech.StreamingRecognizeRequest(audio_content=content)
+                for content in audio_generator
+            )
+
+            responses = client.streaming_recognize(streaming_config, requests)
+
+            # Now, put the transcription responses to use.
+            listen_print_loop(responses)
+
+###############
+
+@bot.hybrid_command(help='Join the voice server')
+async def join(ctx):
+    
+    channel = ctx.author.voice.channel
+    voice_client = await channel.connect()
+    recordingThread = RecordingThread()
+    recordingThread.start()
+    await ctx.send(f'Joined {channel}')
+
+@bot.hybrid_command(help='Leave the voice server')
+async def leave(ctx):
+    await ctx.voice_client.disconnect()
+
 
 
 @bot.hybrid_command()
@@ -29,7 +77,9 @@ async def ping(ctx):
 @bot.hybrid_command(help='Show the current temperature and humidity')
 async def get_temperture_humidity(ctx):
     data = await fetch_temperature_humidity()
-    await ctx.send(f'**Temperature**: {data["temperature"]} C\n**Humidity**: {data["humidity"]} %')
+    result = ask("Notifying the user about the fetching temperature and humidity",
+                 f'**Temperature**: {data["temperature"]} C\n**Humidity**: {data["humidity"]} %')
+    await ctx.send(result)
 
 
 async def fetch_temperature_humidity():
@@ -50,6 +100,8 @@ async def fetch_temperature_humidity():
 async def get_lighting_status(ctx):
     data = await fetch_lighting_status()
     state = 'ON' if data == 1 else 'OFF'
+    result = ask("Notifying the user about the status of the lighting",
+                 f'**Light**: {state}')
     await ctx.send(f'**Light**: {state}')
 
 
@@ -68,7 +120,9 @@ async def get_fan_heater_status(ctx):
     data = await fetch_fan_heater_status()
     fan_state = 'ON' if data['fan'] else 'OFF'
     heater_state = 'ON' if data['heater'] else 'OFF'
-    await ctx.send(f'**Fan**: {fan_state}\n**Heater**: {heater_state}')
+    result = ask("Notifying the user about the status of the fan and heater",
+                 f'**Fan**: {fan_state}\n**Heater**: {heater_state}')
+    await ctx.send(result)
 
 
 async def fetch_fan_heater_status():

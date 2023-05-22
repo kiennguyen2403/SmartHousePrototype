@@ -1,177 +1,195 @@
-from voicecommand import *
-import threading
+from google.cloud import speech
 import os
+import queue
+import re
+import sys
+import pyaudio
+from google.cloud import speech
+import google.cloud.texttospeech as texttospeech
+#setting Google credential
+os.environ['GOOGLE_APPLICATION_CREDENTIALS']= 'credential.json'
+# create client instance 
 
-import aiohttp
-import discord
-from discord.ext import commands, tasks
-from dotenv import load_dotenv
-from GPTWrapper import ask
 
-load_dotenv()
-TOKEN = str(os.getenv('DISCORD_TOKEN'))
-API_URL = os.getenv('API_URL')
-INDOOR_ENV_DEVICE = os.getenv('INDOOR_ENV')
-LIGHTING_DEVICE = os.getenv('LIGHTING')
-USERNAME = os.getenv('USERNAME')
-PASSWORD = os.getenv('PASSWORD')
-CHANNEL_ID = int(str(os.getenv('CHANNEL_ID')))
 
-intents = discord.Intents.default()
-intents.message_content = True
-bot = commands.Bot(command_prefix='>', intents=intents)
+# Audio recording parameters
+RATE = 16000
+CHUNK = int(RATE / 10)  # 100ms
 
-bearer_token = ''
-##########################
-class RecordingThread(threading.Thread):
-    def __init__(self):
-        threading.Thread.__init__(self)
 
-    def run(self):
-        language_code = "en-US"  # a BCP-47 language tag
-        client = speech.SpeechClient()
-        config = speech.RecognitionConfig(
-            encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-            sample_rate_hertz=RATE,
-            language_code=language_code,
+class MicrophoneStream:
+    """Opens a recording stream as a generator yielding the audio chunks."""
+
+    def __init__(self, rate, chunk):
+        self._rate = rate
+        self._chunk = chunk
+
+        # Create a thread-safe buffer of audio data
+        self._buff = queue.Queue()
+        self.closed = True
+
+    def __enter__(self):
+        self._audio_interface = pyaudio.PyAudio()
+        self._audio_stream = self._audio_interface.open(
+            format=pyaudio.paInt16,
+            # The API currently only supports 1-channel (mono) audio
+            # https://goo.gl/z757pE
+            channels=1,
+            rate=self._rate,
+            input=True,
+            frames_per_buffer=self._chunk,
+            # Run the audio stream asynchronously to fill the buffer object.
+            # This is necessary so that the input device's buffer doesn't
+            # overflow while the calling thread makes network requests, etc.
+            stream_callback=self._fill_buffer,
         )
 
-        streaming_config = speech.StreamingRecognitionConfig(
-            config=config, interim_results=True
+        self.closed = False
+
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self._audio_stream.stop_stream()
+        self._audio_stream.close()
+        self.closed = True
+        # Signal the generator to terminate so that the client's
+        # streaming_recognize method will not block the process termination.
+        self._buff.put(None)
+        self._audio_interface.terminate()
+
+    def _fill_buffer(self, in_data, frame_count, time_info, status_flags):
+        """Continuously collect data from the audio stream, into the buffer."""
+        self._buff.put(in_data)
+        return None, pyaudio.paContinue
+
+    def generator(self):
+        while not self.closed:
+            # Use a blocking get() to ensure there's at least one chunk of
+            # data, and stop iteration if the chunk is None, indicating the
+            # end of the audio stream.
+            chunk = self._buff.get()
+            if chunk is None:
+                return
+            data = [chunk]
+
+            # Now consume whatever other data's still buffered.
+            while True:
+                try:
+                    chunk = self._buff.get(block=False)
+                    if chunk is None:
+                        return
+                    data.append(chunk)
+                except queue.Empty:
+                    break
+
+            yield b"".join(data)
+
+
+def speech_to_text(responses):
+    """Iterates through server responses and prints them.
+
+    The responses passed is a generator that will block until a response
+    is provided by the server.
+
+    Each response may contain multiple results, and each result may contain
+    multiple alternatives; for details, see https://goo.gl/tjCPAU.  Here we
+    print only the transcription for the top alternative of the top result.
+
+    In this case, responses are provided for interim results as well. If the
+    response is an interim one, print a line feed at the end of it, to allow
+    the next result to overwrite it, until the response is a final one. For the
+    final one, print a newline to preserve the finalized transcription.
+    """
+    num_chars_printed = 0
+    for response in responses:
+        if not response.results:
+            continue
+
+        # The `results` list is consecutive. For streaming, we only care about
+        # the first result being considered, since once it's `is_final`, it
+        # moves on to considering the next utterance.
+        result = response.results[0]
+        if not result.alternatives:
+            continue
+
+        # Display the transcription of the top alternative.
+        transcript = result.alternatives[0].transcript
+
+        # Display interim results, but with a carriage return at the end of the
+        # line, so subsequent lines will overwrite them.
+        #
+        # If the previous result was longer than this one, we need to print
+        # some extra spaces to overwrite the previous result
+        overwrite_chars = " " * (num_chars_printed - len(transcript))
+
+        if not result.is_final:
+            sys.stdout.write(transcript + overwrite_chars + "\r")
+            sys.stdout.flush()
+
+            num_chars_printed = len(transcript)
+
+        else:
+            print(transcript + overwrite_chars)
+            yield transcript
+
+            # # Exit recognition if any of the transcribed phrases could be
+            # # one of our keywords.
+            # if re.search(r"\b(exit|quit)\b", transcript, re.I):
+            #     print("Exiting..")
+            #     break
+
+            # num_chars_printed = 0
+
+
+def startrecording():
+    # See http://g.co/cloud/speech/docs/languages
+    # for a list of supported languages.
+    language_code = "en-US"  # a BCP-47 language tag
+
+    client = speech.SpeechClient()
+    config = speech.RecognitionConfig(
+        encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+        sample_rate_hertz=RATE,
+        language_code=language_code,
+    )
+
+    streaming_config = speech.StreamingRecognitionConfig(
+        config=config, interim_results=True
+    )
+
+    with MicrophoneStream(RATE, CHUNK) as stream:
+        audio_generator = stream.generator()
+        requests = (
+            speech.StreamingRecognizeRequest(audio_content=content)
+            for content in audio_generator
         )
 
-        with MicrophoneStream(RATE, CHUNK) as stream:
-            audio_generator = stream.generator()
-            requests = (
-                speech.StreamingRecognizeRequest(audio_content=content)
-                for content in audio_generator
-            )
+        responses = client.streaming_recognize(streaming_config, requests)
 
-            responses = client.streaming_recognize(streaming_config, requests)
+        # Now, put the transcription responses to use.
+        for x in speech_to_text(responses):
+            print(x)
 
-            # Now, put the transcription responses to use.
-            for text in speech_to_text(responses):
-                response = ask(text)
-                print(response)
-                    
+def text_to_wav(text, voicename = "ja-JP-Wavenet-B"):
+    language_code = "-".join(voicename.split("-")[:2])
+    text_input = texttospeech.SynthesisInput(text=text)
+    voice_params = texttospeech.VoiceSelectionParams(
+        language_code=language_code, name=voicename
+    )
+    audio_config = texttospeech.AudioConfig(audio_encoding=texttospeech.AudioEncoding.LINEAR16)
 
-###############
+    client = texttospeech.TextToSpeechClient()
+    response = client.synthesize_speech(
+        input=text_input,
+        voice=voice_params,
+        audio_config=audio_config,
+    )
 
-@bot.hybrid_command(help='Join the voice server')
-async def join(ctx):
-    
-    channel = ctx.author.voice.channel
-    voice_client = await channel.connect()
-    recordingThread = RecordingThread()
-    recordingThread.start()
-    await ctx.send(f'Joined {channel}')
-
-@bot.hybrid_command(help='Leave the voice server')
-async def leave(ctx):
-    await ctx.voice_client.disconnect()
+    filename = f"{voicename}.wav"
+    with open(filename, "wb") as out:
+        out.write(response.audio_content)
+        print(f'Generated speech saved to "{filename}"')
 
 
-
-@bot.hybrid_command()
-async def ping(ctx):
-    await ctx.send('pong')
-
-
-@bot.hybrid_command(help='Show the current temperature and humidity')
-async def get_temperture_humidity(ctx):
-    data = await fetch_temperature_humidity()
-    result = ask("Notifying the user about the fetching temperature and humidity",
-                 f'**Temperature**: {data["temperature"]} C\n**Humidity**: {data["humidity"]} %')
-    await ctx.send(result)
-
-
-async def fetch_temperature_humidity():
-    keys = '%2C'.join(['temperature', 'humidity'])
-    async with aiohttp.ClientSession() as session:
-        async with session.get(
-            f'{API_URL}/api/plugins/telemetry/DEVICE/{INDOOR_ENV_DEVICE}/values/timeseries?keys={keys}&useStrictDataTypes=true',
-            headers={'X-Authorization': f'Bearer {bearer_token}'}
-        ) as response:
-            data = await response.json()
-            return {
-                'temperature': data['temperature'][0]["value"],
-                'humidity': data['humidity'][0]["value"]
-            }
-
-
-@bot.hybrid_command(help='Show the current lighting status')
-async def get_lighting_status(ctx):
-    data = await fetch_lighting_status()
-    state = 'ON' if data == 1 else 'OFF'
-    result = ask("Notifying the user about the status of the lighting",
-                 f'**Light**: {state}')
-    await ctx.send(f'**Light**: {state}')
-
-
-async def fetch_lighting_status():
-    async with aiohttp.ClientSession() as session:
-        async with session.get(
-            f'{API_URL}/api/plugins/telemetry/DEVICE/{LIGHTING_DEVICE}/values/timeseries?keys=light&useStrictDataTypes=true',
-            headers={'X-Authorization': f'Bearer {bearer_token}'}
-        ) as response:
-            data = await response.json()
-            return data['light'][0]["value"]
-
-
-@bot.hybrid_command(help='Show the current fan and heater status')
-async def get_fan_heater_status(ctx):
-    data = await fetch_fan_heater_status()
-    fan_state = 'ON' if data['fan'] else 'OFF'
-    heater_state = 'ON' if data['heater'] else 'OFF'
-    result = ask("Notifying the user about the status of the fan and heater",
-                 f'**Fan**: {fan_state}\n**Heater**: {heater_state}')
-    await ctx.send(result)
-
-
-async def fetch_fan_heater_status():
-    keys = '%2C'.join(['fan', 'heater'])
-    async with aiohttp.ClientSession() as session:
-        async with session.get(
-            f'{API_URL}/api/plugins/telemetry/DEVICE/{INDOOR_ENV_DEVICE}/values/timeseries?keys={keys}&useStrictDataTypes=true',
-            headers={'X-Authorization': f'Bearer {bearer_token}'}
-        ) as response:
-            data = await response.json()
-            return {
-                'fan': data['fan'][0]["value"],
-                'heater': data['heater'][0]["value"]
-            }
-
-
-@tasks.loop(minutes=5)
-async def update_data():
-    channel = bot.get_channel(CHANNEL_ID)
-    temp_humid_data = await fetch_temperature_humidity()
-    lighting_data = await fetch_lighting_status()
-    fan_heater_data = await fetch_fan_heater_status()
-    light_state = 'ON' if lighting_data == 1 else 'OFF'
-    fan_state = 'ON' if fan_heater_data['fan'] else 'OFF'
-    heater_state = 'ON' if fan_heater_data['heater'] else 'OFF'
-    await channel.send(f'**Temperature**: {temp_humid_data["temperature"]} C\n**Humidity**: {temp_humid_data["humidity"]} %\n**Light**: {light_state}\n**Fan**: {fan_state}\n**Heater**: {heater_state}') # type: ignore
-
-
-async def login():
-    global bearer_token
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            f'{API_URL}/api/auth/login',
-            json={'username': USERNAME, 'password': PASSWORD}
-        ) as response:
-            data = await response.json()
-            bearer_token = data['token']
-
-
-@bot.event
-async def on_ready():
-    await login()
-    await bot.tree.sync()
-    print('Bot is ready')
-    await update_data.start()
-
-
-if __name__ == '__main__':
-    bot.run(TOKEN)
+if __name__ == "__main__":
+   text_to_wav("i love you Kien")

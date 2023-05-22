@@ -56,16 +56,19 @@ class RecordingThread(threading.Thread):
 
 @bot.hybrid_command(help='Join the voice server')
 async def join(ctx):
-    
     channel = ctx.author.voice.channel
     voice_client = await channel.connect()
     recordingThread = RecordingThread()
     recordingThread.start()
+    voice_client.play(discord.FFmpegPCMAudio('output.wav'))
     await ctx.send(f'Joined {channel}')
+
+
 
 @bot.hybrid_command(help='Leave the voice server')
 async def leave(ctx):
     await ctx.voice_client.disconnect()
+    await ctx.send(f'Leave the voice server')
 
 
 

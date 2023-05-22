@@ -52,6 +52,7 @@ class RecordingThread(threading.Thread):
             # Now, put the transcription responses to use.
             for text in (responses):
                 print(text)
+                
 
 ###############
 

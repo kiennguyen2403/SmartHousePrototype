@@ -1,13 +1,13 @@
 from voicecommand import *
 import threading
 import os
-
 import aiohttp
 import discord
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 from GPTWrapper import ask
-
+from rpc import openGate
+from time import sleep
 load_dotenv()
 TOKEN = str(os.getenv('DISCORD_TOKEN'))
 API_URL = os.getenv('API_URL')
@@ -52,11 +52,22 @@ class RecordingThread(threading.Thread):
 
             # Now, put the transcription responses to use.
             for text in speech_to_text(responses):
-                print(text)
-                response = ask(text)
+                text = text.lower()
+                if "smart house" in text:
+                    if "open" in text and "gate" in text:
+                        response = "Opening Gate"
+                        openGate()
+                        print("Opened Gate")
+
+                    
+                else:
+                    response = ask(text)
+
                 print(response)
                 text_to_wav(response)
                 playAudio(self.voice_client)
+                sleep(len(response)*0.1)
+
 
 
 

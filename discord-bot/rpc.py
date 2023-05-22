@@ -18,13 +18,36 @@ client.on_connect = on_connect
 client.on_message = on_message
 
 
-def openGate():
-    print("vao open gate")
+# def openGate():
+#     print("vao open gate")
+#     client.username_pw_set(username=os.getenv('GATE_ACCESS_KEY'))
+#     client.connect(os.getenv('MQTT_HOST'), 1883, 60)
+#     request = {
+#                     "method": "OpenGate",
+#                     "params": {}
+#             }
+#     client.publish("v1/devices/me/rpc/request/1",json.dumps(request))
+#     client.loop_start()
+
+# def closeGate():
+#     print("vao close gate")
+#     client.username_pw_set(username=os.getenv('GATE_ACCESS_KEY'))
+#     client.connect(os.getenv('MQTT_HOST'), 1883, 60)
+#     request = {
+#                     "method":"CloseGate",
+#                     "params": {}
+#     }
+
+
+
+def sendMessage(method, request,id):
+    print("Fire message")
     client.username_pw_set(username=os.getenv('GATE_ACCESS_KEY'))
     client.connect(os.getenv('MQTT_HOST'), 1883, 60)
     request = {
-                    "method": "OpenGate",
+                    "method": method,
                     "params": {}
             }
-    client.publish("v1/devices/me/rpc/request/1",json.dumps(request))
+    client.publish("v1/devices/me/rpc/request/"+str(id),json.dumps(request))
     client.loop_start()
+

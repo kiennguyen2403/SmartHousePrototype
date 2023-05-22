@@ -6,7 +6,7 @@ import discord
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 from GPTWrapper import ask
-from rpc import openGate
+from rpc import sendMessage
 from time import sleep
 load_dotenv()
 TOKEN = str(os.getenv('DISCORD_TOKEN'))
@@ -21,13 +21,52 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='>', intents=intents)
 
+
+Command = [{
+    "id": 1,
+    "method": "OpenGate",
+    "request": {
+        
+    }
+}, {
+    "id": 1,
+    "method": "CloseGate",
+    "request": {}
+}, {
+    "id": 2,
+    "method": "LightOn",
+    "request": {}
+}, {
+    "id": 2,
+    "method": "LightOff",
+    "request": {}
+}, {
+    "id": 3,
+    "method": "FanOn",
+    "request": {}
+}, {
+    "id": 3,
+    "method": "FanLight",
+    "request": {}
+}, {
+    "id": 4,
+    "params": "HeaterOn",
+    "request": {}
+}, {
+    "id": 4,
+    "method": "HeaterOff",
+    "request": {}
+}]
+
 bearer_token = ''
 ##########################
+
+
 class RecordingThread(threading.Thread):
-    def __init__(self,voice_client):
+    def __init__(self, voice_client):
         threading.Thread.__init__(self)
         self.voice_client = voice_client
-    
+
     def run(self):
         language_code = "en-US"  # a BCP-47 language tag
         client = speech.SpeechClient()
@@ -56,10 +95,36 @@ class RecordingThread(threading.Thread):
                 if "smart house" in text:
                     if "open" in text and "gate" in text:
                         response = "Opening Gate"
-                        openGate()
-                        print("Opened Gate")
-
-                    
+                        sendMessage(Command[0]["method"],Command[0]["request"],Command[0]["id"])
+                    elif "close" in text and "gate" in text:
+                        response = "Close Gate"
+                        sendMessage(
+                            Command[1]["method"], Command[1]["request"], Command[1]["id"])
+                    elif "on" in text and "light" in text:
+                        responses = "Light On"
+                        sendMessage(
+                            Command[2]["method"], Command[2]["request"], Command[2]["id"])
+                    elif "off" in text and "light" in text:
+                        response = "Light Off"
+                        sendMessage(
+                            Command[3]["method"], Command[3]["request"], Command[3]["id"])
+                    elif "on" in text and "fan" in text:
+                        response = "Fan On"
+                        sendMessage(
+                            Command[4]["method"], Command[4]["request"], Command[4]["id"])
+                    elif "off" in text and "fan" in text:
+                        response = "Fan Off"
+                        sendMessage(
+                            Command[5]["method"], Command[5]["request"], Command[5]["id"])
+                    elif "on" in text and "heater" in text:
+                        response = "Heater On"
+                        sendMessage(
+                            Command[6]["method"], Command[6]["request"], Command[6]["id"])
+                    elif "off" in text and "heater" in text:
+                        response = "Heater Off"
+                        sendMessage(
+                            Command[7]["method"], Command[7]["request"], Command[7]["id"])
+                
                 else:
                     response = ask(text)
 
@@ -67,9 +132,6 @@ class RecordingThread(threading.Thread):
                 text_to_wav(response)
                 playAudio(self.voice_client)
                 sleep(len(response)*0.1)
-
-
-
 
 
 ###############
@@ -83,6 +145,7 @@ async def join(ctx):
     # voice_client.play(discord.FFmpegPCMAudio('output.wav'))
     await ctx.send(f'Joined {channel}')
 
+
 def playAudio(voice_client):
     voice_client.play(discord.FFmpegPCMAudio('output.wav'))
 
@@ -91,7 +154,6 @@ def playAudio(voice_client):
 async def leave(ctx):
     await ctx.voice_client.disconnect()
     await ctx.send(f'Leave the voice server')
-
 
 
 @bot.hybrid_command()
@@ -173,7 +235,8 @@ async def update_data():
     light_state = 'ON' if lighting_data == 1 else 'OFF'
     fan_state = 'ON' if fan_heater_data['fan'] else 'OFF'
     heater_state = 'ON' if fan_heater_data['heater'] else 'OFF'
-    await channel.send(f'**Temperature**: {temp_humid_data["temperature"]} C\n**Humidity**: {temp_humid_data["humidity"]} %\n**Light**: {light_state}\n**Fan**: {fan_state}\n**Heater**: {heater_state}') # type: ignore
+    # type: ignore
+    await channel.send(f'**Temperature**: {temp_humid_data["temperature"]} C\n**Humidity**: {temp_humid_data["humidity"]} %\n**Light**: {light_state}\n**Fan**: {fan_state}\n**Heater**: {heater_state}')
 
 
 async def login():

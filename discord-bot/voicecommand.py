@@ -4,7 +4,9 @@ import queue
 import re
 import sys
 import pyaudio
+
 from google.cloud import speech
+
 import google.cloud.texttospeech as texttospeech
 os.environ['GOOGLE_APPLICATION_CREDENTIALS']= 'credential.json'
 
@@ -104,10 +106,14 @@ def startrecording():
     language_code = "en-US" 
 
     client = speech.SpeechClient()
+    speech_adaptation = speech.SpeechAdaptation(
+        phrase_set_references=["projects/349104223284/locations/global/phraseSets/command1"])
     config = speech.RecognitionConfig(
         encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
         sample_rate_hertz=RATE,
         language_code=language_code,
+        adaptation=speech_adaptation,
+        use_enhanced=True
     )
 
     streaming_config = speech.StreamingRecognitionConfig(
@@ -122,6 +128,8 @@ def startrecording():
         )
 
         responses = client.streaming_recognize(streaming_config, requests)
+        for x in speech_to_text(responses):
+            print(x)
 
 def text_to_wav(text, voicename = "ja-JP-Wavenet-B"):
     language_code = "-".join(voicename.split("-")[:2])

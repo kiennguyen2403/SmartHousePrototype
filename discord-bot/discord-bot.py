@@ -70,10 +70,14 @@ class RecordingThread(threading.Thread):
     def run(self):
         language_code = "en-US"  # a BCP-47 language tag
         client = speech.SpeechClient()
+        speech_adaptation = speech.SpeechAdaptation(
+            phrase_set_references=["projects/349104223284/locations/global/phraseSets/command1"])
         config = speech.RecognitionConfig(
             encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
             sample_rate_hertz=RATE,
             language_code=language_code,
+            adaptation=speech_adaptation,
+            use_enhanced=True
         )
 
         streaming_config = speech.StreamingRecognitionConfig(
@@ -96,6 +100,7 @@ class RecordingThread(threading.Thread):
                     if "open" in text and "gate" in text:
                         response = "Opening Gate"
                         sendMessage("OpenGate",1)
+                        
                     # elif "close" in text and "gate" in text:
                     #     response = "Close Gate"
                     #     sendMessage(
@@ -131,7 +136,7 @@ class RecordingThread(threading.Thread):
                 print(response)
                 text_to_wav(response)
                 playAudio(self.voice_client)
-                sleep(len(response)*0.1)
+                # sleep(len(response)*0.3)
 
 
 ###############

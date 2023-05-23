@@ -114,20 +114,7 @@ class RecordingThread(threading.Thread):
                 text = text.lower()
                 if "smart house" in text:
                     if "open" in text and "gate" in text:
-                        response = "Opening Gate"
-                        # sendMessage("OpenGate",1)
-                    # elif "close" in text and "gate" in text:
-                    #     response = "Close Gate"
-                    #     sendMessage(
-                    #         Command[1]["method"], Command[1]["request"], Command[1]["id"])
-                    # elif "on" in text and "light" in text:
-                    #     responses = "Light On"
-                    #     sendMessage(
-                    #         Command[2]["method"], Command[2]["request"], Command[2]["id"])
-                    # elif "off" in text and "light" in text:
-                    #     response = "Light Off"
-                    #     sendMessage(
-                    #         Command[3]["method"], Command[3]["request"], Command[3]["id"])
+                        response = "Opening Gate"        
                     elif "on" in text and "fan" in text:
                         response = "Fan On"
                         asyncio.run(self.send_message(*Command[4].values()))
@@ -146,8 +133,13 @@ class RecordingThread(threading.Thread):
 
                 print(response)
                 text_to_wav(response)
+                device_index = stream._audio_interface.get_default_input_device_info()['index']
+                # Mute the mic by setting the input volume to 0
+                stream._audio_interface.terminate()
                 playAudio(self.voice_client)
                 sleep(len(response)*0.1)
+                stream.__enter__()
+
 
 
 ###############

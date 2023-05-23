@@ -1,3 +1,4 @@
+lighting-controller/smarthouse
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -38,3 +39,4 @@ ENV/
 
 # Mac OS X file system metadata
 .DS_store
+

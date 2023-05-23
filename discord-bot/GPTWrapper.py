@@ -8,7 +8,7 @@ load_dotenv()
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-def ask(question, context):
+def ask(question, context=None):
     response = openai.Completion.create(
         engine="davinci",
         prompt=f"{context}\nQ: {question}\nA:",

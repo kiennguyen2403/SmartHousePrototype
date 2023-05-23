@@ -8,21 +8,25 @@ device = "/dev/cu.usbmodem21301"
 arduino = serial.Serial(device,9600)
 # The callback for when the client receives a CONNACK response from the server.
 def on_connect(client, userdata, flags, rc):
-    print('connected')
     client.subscribe("v1/devices/me/rpc/request/+")
-    client.subscribe('v1/devices/me/rpc/response/+')    
+    client.subscribe('v1/devices/me/rpc/response/+')
 
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
     message = json.loads(msg.payload.decode("utf-8"))
-    
-    if message.get("method",None) == "OpenGate":
+    print(message)
+    method = message.get("method",None)
+    if  method == "OpenGate":
         arduino.write(b'{"method":"OpenGate"}')
-    if message.get("method",None) == "ReturnWeatherData":
+    elif method == "ReturnWeatherData":
         arduinoCommand = {"method":"UpdateWeather","value":message["rain"]}
         arduinoCommand = json.dumps(arduinoCommand)
         print(arduinoCommand)
         arduino.write(arduinoCommand.encode())
+    elif method == "setValueBuzzer":
+        arduinoCommand = json.dumps(message)
+        arduino.write(arduinoCommand.encode())
+
 
 def on_subscribe(client, userdata, mid, granted_qos):
     print( )
@@ -40,7 +44,7 @@ def getWeatherData():
     lastGetWeatherTime = datetime.datetime.now()
     while True:
         current_time = datetime.datetime.now()
-        if (current_time - lastGetWeatherTime).seconds == 20:
+        if (current_time - lastGetWeatherTime).seconds == 100:
             lastGetWeatherTime = current_time
             request = {
                     "method": "getWeather",

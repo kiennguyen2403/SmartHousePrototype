@@ -7,6 +7,7 @@
 #include <LiquidCrystal_I2C.h>  // LiquidCrystal I2C library by Frank de Brabander
 #include "DHT.h"
 
+#define BUZZER_PIN 4
 #define DHTPIN 7   
 #define DHTTYPE DHT11   // DHT 11
 #define RST_PIN 9
@@ -24,7 +25,7 @@ Servo servo1;
 int numberOfSlot;  // The number of available parking slots in the parking area.
 int waterVal = 0;
 DHT dht(DHTPIN, DHTTYPE);
-
+bool buzzer_state = false;
 
 void setup() {
   Serial.begin(9600);
@@ -36,6 +37,7 @@ void setup() {
   servo1.write(0);
   lcd.clear();
   dht.begin();
+  pinMode(BUZZER_PIN,OUTPUT);
 }
 
 
@@ -65,7 +67,6 @@ bool readData(byte blockNumber, byte buffer1[]) {
 void loop() {
   doc.clear();
   float h = dht.readHumidity();
-  // Read temperature as Celsius (the default)
   float t = dht.readTemperature();
   lcd.setCursor(0, 0);
   lcd.print("                   ");
@@ -78,8 +79,12 @@ void loop() {
     doc["direction"] = "out";
     serializeJson(doc, Serial);  // Send the data to Serial line
     Serial.println();
-
     delay(2000);
+  }
+  if (buzzer_state) {
+    digitalWrite(BUZZER_PIN,HIGH);
+  } else {
+    digitalWrite(BUZZER_PIN,LOW);
   }
   
   if (Serial.available() > 0) {                               // Read from the serial line
@@ -95,6 +100,8 @@ void loop() {
       lcd.setCursor(0, 1);
       String rainValue = doc["value"];
       lcd.print("Rain: " + rainValue); 
+    } else if (doc["method"] = "setValueBuzzer") {
+      buzzer_state = doc["params"];
     }
   }
 

@@ -12,6 +12,7 @@ load_dotenv()
 TOKEN = str(os.getenv('DISCORD_TOKEN'))
 API_URL = os.getenv('API_URL')
 INDOOR_ENV_DEVICE = os.getenv('INDOOR_ENV')
+GATE_DEVICE = os.getenv("GATE")
 LIGHTING_DEVICE = os.getenv('LIGHTING')
 GATE_DEVICE = os.getenv('GATE')
 USERNAME = os.getenv('USERNAME')
@@ -24,11 +25,9 @@ bot = commands.Bot(command_prefix='>', intents=intents)
 
 
 Command = [{
-    "id": 1,
+    "id": GATE_DEVICE,
     "method": "OpenGate",
-    "request": {
-        
-    }
+    "request": {}
 }, {
     "id": 1,
     "method": "CloseGate",
@@ -114,7 +113,8 @@ class RecordingThread(threading.Thread):
                 text = text.lower()
                 if "smart house" in text:
                     if "open" in text and "gate" in text:
-                        response = "Opening Gate"        
+                        response = "Opening Gate"     
+                        asyncio.run(self.send_message(*Command[0].values()))   
                     elif "on" in text and "fan" in text:
                         response = "Fan On"
                         asyncio.run(self.send_message(*Command[4].values()))
@@ -133,8 +133,6 @@ class RecordingThread(threading.Thread):
 
                 print(response)
                 text_to_wav(response)
-                device_index = stream._audio_interface.get_default_input_device_info()['index']
-                # Mute the mic by setting the input volume to 0
                 stream._audio_interface.terminate()
                 playAudio(self.voice_client)
                 sleep(len(response)*0.1)

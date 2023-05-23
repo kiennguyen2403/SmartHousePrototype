@@ -1,4 +1,42 @@
 lighting-controller/smarthouse
-lighting-controller/.env
-discord-bot/.env
-```
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# dotenv
+.env
+
+# virtualenv
+venv/
+ENV/
+
+# Mac OS X file system metadata
+.DS_store
+

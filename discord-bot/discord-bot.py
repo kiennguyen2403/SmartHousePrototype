@@ -22,43 +22,74 @@ CHANNEL_ID = int(str(os.getenv('CHANNEL_ID')))
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='>', intents=intents)
-
+bearer_token = ''
 
 Command = [{
-    "id": GATE_DEVICE,
-    "method": "OpenGate",
-    "request": {}
+    "keywords": ["open", "gate"],
+    "response": "Opening Gate",
+    "payload": {
+        "id": GATE_DEVICE,
+        "method": "OpenGate",
+        "request": {}
+    }
 }, {
-    "id": 1,
-    "method": "CloseGate",
-    "request": {}
+    "keywords": ["close", "gate"],
+    "response": "Closing Gate",
+    "payload": {
+        "id": 1,
+        "method": "CloseGate",
+        "request": {}
+    }
 }, {
-    "id": LIGHTING_DEVICE,
-    "method": "setValueLight",
-    "request": True,
+    "keywords": ["on", "light"],
+    "response": "Light On",
+    "payload": {
+        "id": LIGHTING_DEVICE,
+        "method": "setValueLight",
+        "request": True,
+    }
 }, {
-    "id": LIGHTING_DEVICE,
-    "method": "setValueLight",
-    "request": False,
+    "keywords": ["off", "light"],
+    "response": "Light Off",
+    "payload": {
+        "id": LIGHTING_DEVICE,
+        "method": "setValueLight",
+        "request": False,
+    }
 }, {
-    "id": INDOOR_ENV_DEVICE,
-    "method": "setValueFan",
-    "request": True
+    "keywords": ["on", "fan"],
+    "response": "Fan On",
+    "payload": {
+        "id": INDOOR_ENV_DEVICE,
+        "method": "setValueFan",
+        "request": True
+    }
 }, {
-    "id": INDOOR_ENV_DEVICE,
-    "method": "setValueFan",
-    "request": False
+    "keywords": ["off", "fan"],
+    "response": "Fan Off",
+    "payload": {
+        "id": INDOOR_ENV_DEVICE,
+        "method": "setValueFan",
+        "request": False
+    }
 }, {
-    "id": INDOOR_ENV_DEVICE,
-    "params": "setValueHeater",
-    "request": True
+    "keywords": ["on", "heater"],
+    "response": "Heater On",
+    "payload": {
+        "id": INDOOR_ENV_DEVICE,
+        "params": "setValueHeater",
+        "request": True
+    }
 }, {
-    "id": INDOOR_ENV_DEVICE,
-    "method": "setValueHeater",
-    "request": False
+    "keywords": ["off", "heater"],
+    "response": "Heater Off",
+    "payload": {
+        "id": INDOOR_ENV_DEVICE,
+        "method": "setValueHeater",
+        "request": False
+    }
 }]
 
-bearer_token = ''
 ##########################
 
 
@@ -112,22 +143,10 @@ class RecordingThread(threading.Thread):
             for text in speech_to_text(responses):
                 text = text.lower()
                 if "smart house" in text:
-                    if "open" in text and "gate" in text:
-                        response = "Opening Gate"     
-                        asyncio.run(self.send_message(*Command[0].values()))   
-                    elif "on" in text and "fan" in text:
-                        response = "Fan On"
-                        asyncio.run(self.send_message(*Command[4].values()))
-                    elif "off" in text and "fan" in text:
-                        response = "Fan Off"
-                        asyncio.run(self.send_message(*Command[5].values()))
-                    elif "on" in text and "heater" in text:
-                        response = "Heater On"
-                        asyncio.run(self.send_message(*Command[6].values()))
-                    elif "off" in text and "heater" in text:
-                        response = "Heater Off"
-                        asyncio.run(self.send_message(*Command[7].values()))
-                
+                    for command in Command:
+                        if all(keyword in text for keyword in command["keywords"]):
+                            asyncio.run(self.send_message(*command["payload"].values()))
+                            response = command["response"]
                 else:
                     response = ask(text)
 

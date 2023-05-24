@@ -131,7 +131,7 @@ def startrecording():
         for x in speech_to_text(responses):
             print(x)
 
-def text_to_wav(text, voicename = "ja-JP-Wavenet-B"):
+def text_to_wav(text, voicename = "en-US-Wavenet-I"):
     language_code = "-".join(voicename.split("-")[:2])
     text_input = texttospeech.SynthesisInput(text=text)
     voice_params = texttospeech.VoiceSelectionParams(

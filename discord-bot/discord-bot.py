@@ -80,7 +80,14 @@ class RecordingThread(threading.Thread):
                 }
             ) as resp:
                 print(resp)
-
+    async def askOpenAI(self,message,stream):
+        response = ask(message , await getDeviceData())
+        print(response)
+        text_to_wav(response)
+        stream._audio_interface.terminate()
+        playAudio(self.voice_client)
+        sleep(len(response) * 0.1)
+        stream.__enter__()
 
     def run(self):
         language_code = "en-US"  # a BCP-47 language tag
@@ -127,16 +134,18 @@ class RecordingThread(threading.Thread):
                     elif "off" in text and "heater" in text:
                         response = "Heater Off"
                         asyncio.run(self.send_message(*Command[7].values()))
-                
-                else:
-                    response = ask(text)
+                    else:
+                        response = "I don't know what to do. Can you ask it again?"
+                    print(response)
+                    text_to_wav(response)
+                    stream._audio_interface.terminate()
+                    playAudio(self.voice_client)
+                    sleep(len(response) * 0.1)
+                    stream.__enter__()
 
-                print(response)
-                text_to_wav(response)
-                stream._audio_interface.terminate()
-                playAudio(self.voice_client)
-                sleep(len(response)*0.1)
-                stream.__enter__()
+                else:
+
+                    asyncio.run(self.askOpenAI(text,stream))
 
 
 
@@ -231,18 +240,21 @@ async def fetch_fan_heater_status():
                 'heater': data['heater'][0]["value"]
             }
 
-
-@tasks.loop(minutes=5)
-async def update_data():
-    channel = bot.get_channel(CHANNEL_ID)
+async def getDeviceData():
     temp_humid_data = await fetch_temperature_humidity()
     lighting_data = await fetch_lighting_status()
     fan_heater_data = await fetch_fan_heater_status()
     light_state = 'ON' if lighting_data == 1 else 'OFF'
     fan_state = 'ON' if fan_heater_data['fan'] else 'OFF'
     heater_state = 'ON' if fan_heater_data['heater'] else 'OFF'
+    return f'**Temperature**: {temp_humid_data["temperature"]} C\n**Humidity**: {temp_humid_data["humidity"]} %\n**Light**: {light_state}\n**Fan**: {fan_state}\n**Heater**: {heater_state}'
+
+
+@tasks.loop(minutes=5)
+async def update_data():
+    channel = bot.get_channel(CHANNEL_ID)
     # type: ignore
-    await channel.send(f'**Temperature**: {temp_humid_data["temperature"]} C\n**Humidity**: {temp_humid_data["humidity"]} %\n**Light**: {light_state}\n**Fan**: {fan_state}\n**Heater**: {heater_state}')
+    await channel.send(await getDeviceData())
 
 
 async def login():

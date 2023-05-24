@@ -287,6 +287,7 @@ async def login():
         ) as response:
             data = await response.json()
             bearer_token = data['token']
+            print(bearer_token)
 
 
 @bot.event

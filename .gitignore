@@ -40,3 +40,5 @@ ENV/
 # Mac OS X file system metadata
 .DS_store
 
+# cached data
+.wav

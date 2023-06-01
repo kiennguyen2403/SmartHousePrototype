@@ -1,15 +1,12 @@
-from google.cloud import speech
+# This program is made from this tutorial: https://cloud.google.com/speech-to-text/docs/transcribe-streaming-audio
 import os
 import queue
-import re
 import sys
 import pyaudio
-
 from google.cloud import speech
-
 import google.cloud.texttospeech as texttospeech
-os.environ['GOOGLE_APPLICATION_CREDENTIALS']= 'credential.json'
 
+os.environ['GOOGLE_APPLICATION_CREDENTIALS']= 'credential.json'
 RATE = 16000
 CHUNK = int(RATE / 10)  # 100ms
 
@@ -93,13 +90,6 @@ def speech_to_text(responses):
             print(transcript + overwrite_chars)
             yield transcript
 
-            # # Exit recognition if any of the transcribed phrases could be
-            # # one of our keywords.
-            # if re.search(r"\b(exit|quit)\b", transcript, re.I):
-            #     print("Exiting..")
-            #     break
-
-            # num_chars_printed = 0
 
 
 def startrecording():

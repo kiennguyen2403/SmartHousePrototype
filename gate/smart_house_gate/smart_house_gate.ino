@@ -9,7 +9,7 @@
 
 #define BUZZER_PIN 4
 #define DHTPIN 7   
-#define DHTTYPE DHT11   // DHT 11
+#define DHTTYPE DHT11   
 #define RST_PIN 9
 #define SS_PIN 10
 #define TRIG_PIN 6
@@ -22,8 +22,6 @@ Ultrasonic ultrasonic(TRIG_PIN, ECHO_PIN);
 StaticJsonDocument<200> doc;
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 Servo servo1;
-int numberOfSlot;  // The number of available parking slots in the parking area.
-int waterVal = 0;
 DHT dht(DHTPIN, DHTTYPE);
 bool buzzer_state = false;
 
@@ -66,16 +64,14 @@ bool readData(byte blockNumber, byte buffer1[]) {
 
 void loop() {
   doc.clear();
-  float h = dht.readHumidity();
-  float t = dht.readTemperature();
-  lcd.setCursor(0, 0);
-  lcd.print("                   ");
+  float h = dht.readHumidity(); // read humidity
+  float t = dht.readTemperature(); // read temperature
   lcd.setCursor(0, 0);
   lcd.print("T:" + String(t));
   lcd.setCursor(9, 0);
-  lcd.print("H:" + String(h));   // Display the number of available slots on the screen
+  lcd.print("H:" + String(h));  
   int distance = ultrasonic.read();
-  if (distance <= 10) {
+  if (distance <= 5) {
     doc["direction"] = "out";
     serializeJson(doc, Serial);  // Send the data to Serial line
     Serial.println();
@@ -93,15 +89,15 @@ void loop() {
     deserializeJson(doc, json);
     const char* method = doc["method"];
     if (doc["method"] == "OpenGate") {
-      servo1.write(90);  // Open the gate if it receive command "open"
+      servo1.write(90);  // Open the gate if it receive command "OpenGate"
       delay(2000);       // Hold the gate for 2 seconds
       servo1.write(0);   // Close the gate
     } else if (doc["method"] == "UpdateWeather") {
       lcd.setCursor(0, 1);
       String rainValue = doc["value"];
-      lcd.print("Rain: " + rainValue); 
+      lcd.print("Rain: " + rainValue); // update rain value 
     } else if (doc["method"] = "setValueBuzzer") {
-      buzzer_state = doc["params"];
+      buzzer_state = doc["params"]; // set buzzer value
     }
   }
 
@@ -120,7 +116,7 @@ void loop() {
 
 
 
-  if (readData(PASSWORD_BLOCK, passwordBuffer)) {  // Read Customer name, Customer ID, and password
+  if (readData(PASSWORD_BLOCK, passwordBuffer)) {  // Read the password on the Mifare card
 
 
     String password;

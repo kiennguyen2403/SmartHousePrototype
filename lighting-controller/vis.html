@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Radar Visualization</title>
+  <style>
+    canvas {
+      border: 1px solid black;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="radarCanvas" width="600" height="300" style="object-fit:contain;"></canvas>
+
+  <script>
+    function getObjectFitSize(
+        contains /* true = contain, false = cover */,
+        containerWidth,
+        containerHeight,
+        width,
+        height
+    ) {
+        var doRatio = width / height;
+        var cRatio = containerWidth / containerHeight;
+        var targetWidth = 0;
+        var targetHeight = 0;
+        var test = contains ? doRatio > cRatio : doRatio < cRatio;
+
+        if (test) {
+            targetWidth = containerWidth;
+            targetHeight = targetWidth / doRatio;
+        } else {
+            targetHeight = containerHeight;
+            targetWidth = targetHeight * doRatio;
+        }
+
+        return {
+            width: targetWidth,
+            height: targetHeight,
+            x: (containerWidth - targetWidth) / 2,
+            y: (containerHeight - targetHeight) / 2
+        };
+    }
+
+    const MAX_SENSOR_DISTANCE = 400;
+
+    // Get the canvas element and its context
+    const canvas = document.getElementById("radarCanvas");
+    const originalHeight = canvas.height;
+    const originalWidth = canvas.width;
+    const ctx = canvas.getContext("2d");
+
+    let dimensions = getObjectFitSize(
+        true,
+        canvas.clientWidth,
+        canvas.clientHeight,
+        canvas.width,
+        canvas.height
+    );
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = dimensions.width * dpr;
+    canvas.height = dimensions.height * dpr;
+
+    let ratio = Math.min(
+        canvas.clientWidth / originalWidth,
+        canvas.clientHeight / originalHeight
+    );
+    ctx.scale(ratio * dpr, ratio * dpr);
+
+    // Radar data
+    const radarData = [100,100,200,200,200,150,200,100,100,100,100,100,200,200,200,150,200,100,100,100,100,100,200,200,200,150,200,100,100,100,100,100,200,200,200,150,200,100,100,100,100,100,200,200,200,150,200,100,100,100,100,100,200,200,200,150,200,100,100,100,100,100,200,200,200,150,200,100,100,100,100,100,200,200,200,150,200,100,100,100,100,100,200,200,200,150,200,100,100,100];
+
+    // Constants
+    const centerX = originalWidth / dpr / 2;
+    const centerY = originalHeight / dpr;
+    const radius = Math.min(centerX, centerY) - 10;
+    const angleStep = 2;
+
+    // Function to draw the radar visualization
+    function drawRadar() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw radar arc (top half)
+        ctx.beginPath();
+        ctx.strokeStyle = "tomato";
+        ctx.arc(centerX, centerY, radius, Math.PI, 0);
+        ctx.stroke();
+        ctx.strokeStyle = "black";
+
+        // Draw radar data points (top half)
+        ctx.beginPath();
+        for (let i = 0; i < radarData.length; i++) {
+            const distance = radarData[i];
+            const angle = (i * angleStep) - 180; // Adjusting angle to start from top
+
+            // Convert polar coordinates to Cartesian coordinates
+            const x = centerX + (radius * distance / MAX_SENSOR_DISTANCE) * Math.cos(angle * Math.PI / 180);
+            const y = centerY + (radius * distance / MAX_SENSOR_DISTANCE) * Math.sin(angle * Math.PI / 180);
+
+            // Invert the line
+            const invertedX = centerX + radius * Math.cos(angle * Math.PI / 180);
+            const invertedY = centerY + radius * Math.sin(angle * Math.PI / 180);
+
+            ctx.moveTo(invertedX, invertedY);
+            ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.closePath();
+
+        ctx.restore();
+    }
+
+    // Call the drawRadar function to initially draw the radar
+    drawRadar();
+  </script>
+</body>
+</html>

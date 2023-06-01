@@ -11,18 +11,20 @@ const int echoPin = 11;
 const int lightPin = 13; //
 
 int command = 5;
-
+int MOVING_TIME = 4000;
+unsigned long moveStartTime;
 long duration = 0;
 int distance = 0;
 int distanceThreshold = 20; // Distance threshold to turn on the light
 int durationThreshold = 1000;
 unsigned long currentTime;
 unsigned long startTime;
-int distanceListPrevious[91];
-int distanceListCurrent[91];
+int distanceCurrent =0;
 
 // state
-
+int angle = 0;
+int startAngle = 0;
+int desiredAngle = 180;
 bool isPeopleDetected = false;
 bool isServoRotate = true;
 bool isLightOn = false;
@@ -46,26 +48,12 @@ int calculateDistance()
 
 void sendData()
 {
-  String distanceListStringPrevious = "[";
-  for (int i = 0; i < 90; i++)
-  {
-    distanceListStringPrevious += String(distanceListPrevious[i]) + ",";
-  }
-  distanceListStringPrevious += String(distanceListPrevious[90]);
-  distanceListStringPrevious += "]";
 
-  String distanceListStringCurrent = "[";
-  for (int i = 0; i < 90; i++)
-  {
-    distanceListStringCurrent += String(distanceListCurrent[i]) + ",";
-  }
-  distanceListStringCurrent += String(distanceListCurrent[90]);
-  distanceListStringCurrent += "]";
   currentTime = millis() - startTime;
 
   Serial.println(
-      "{\"distancePrevious\":" + distanceListStringPrevious +
-      ",\"distanceCurrent\":" + distanceListStringCurrent +
+      "{\"angle\":" + String(angle) +
+      ",\"distanceCurrent\":" + String(distanceCurrent) +
       ",\"timer\":" + String(currentTime) +
       ",\"light\":" + String(isLightOn) +
       ",\"servo\":" + String(isServoRotate) + "}");
@@ -104,12 +92,17 @@ void deviceController()
     if (!isServoRotate)
     {
       isServoRotate = true;
+      moveStartTime = millis();
     }
     break;
   case TURN_OFF_SERVO:
     if (isServoRotate)
     {
       isServoRotate = false;
+      myServo.write(0);
+      startAngle = 0;
+      desiredAngle = 180;
+      angle = 0;
     }
     break;
   default:
@@ -120,74 +113,68 @@ void deviceController()
 
   if (isServoRotate)
   {
-    for (int i = 0; i <= 90; i += 5)
+    if (moveStartTime < 0)
     {
-      myServo.write(i);
-
-      distanceListPrevious[i] = calculateDistance();
+      moveStartTime = millis();
     }
-    for (int i = 90; i >= 0; i -= 5)
+    unsigned long progress = millis() - moveStartTime;
+  
+    if (progress <= MOVING_TIME)
     {
-      myServo.write(i);
-      distanceListCurrent[i] = calculateDistance();
+      angle = map(progress, 0, MOVING_TIME -100, startAngle, desiredAngle);
+      angle = constrain(angle, 0, 180);
+      distanceCurrent = calculateDistance();
+      myServo.write(angle);
+      if (angle == desiredAngle && desiredAngle ==180){
+        startAngle = 180;
+        desiredAngle = 0;
+        moveStartTime = millis();
+
+      }
+      else if (angle == desiredAngle && desiredAngle ==0){
+        startAngle = 0;
+        desiredAngle = 180;
+        moveStartTime = millis();
+      }
+  
+    }
+    else if (angle != desiredAngle)
+    {
+      moveStartTime = millis();
     }
   }
   else
   {
     myServo.write(90);
-    distanceListPrevious[90] = calculateDistance();
-    delay(100);
-    distanceListCurrent[90] = calculateDistance();
-  }
-}
-
-ISR(TIMER2_COMPA_vect)
-{
-  interruptCounter++;
-
-  if (interruptCounter > 1000)
-  {
-    interruptCounter = 0;
-    haveSent = false;
+    distanceCurrent = calculateDistance();
   }
 }
 
 void setup()
 {
-  cli();      // stop interrupts
-  TCCR2A = 0; // set entire TCCR2A register to 0
-  TCCR2B = 0; // same for TCCR2B
-  TCNT2 = 0;  // initialize counter value to 0
-  // set compare match register for 1000 Hz increments
-  OCR2A = 249; // = 16000000 / (64 * 1000) - 1 (must be <256)
-  // turn on CTC mode
-  TCCR2A |= (1 << WGM21);
-  // Set CS22, CS21 and CS20 bits for 64 prescaler
-  TCCR2B |= (1 << CS22) | (0 << CS21) | (0 << CS20);
-  // enable timer compare interrupt
-  TIMSK2 |= (1 << OCIE2A);
-  sei(); // allow interrupts
+  
 
   pinMode(lightPin, OUTPUT);
   pinMode(trigPin, OUTPUT); // Sets the trigPin as an Output
   pinMode(echoPin, INPUT);  // Sets the echoPin as an Input
   Serial.begin(115200);
   myServo.attach(12); // Defines on which pin is the servo motor attached
-  myServo.write(90);
+
+  myServo.write(0);
+  startAngle = 0;
+
+  desiredAngle = 180;
+  angle = 0;
+  delay(1000);
+  moveStartTime = millis();
   startTime = millis();
 }
+
 void loop()
 {
   readData();
   deviceController();
-  
-  if (!haveSent)
-  {
-    sendData();
-    haveSent = true;
-  }
-
-  
+  sendData();
 
   // rotates the servo motor from 15 to 165 degrees
 }
